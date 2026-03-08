@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elites.CC | Acceso</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .credit-card-icon {
+            color: #0070ba;
+            font-size: 24px;
+        }
+        .visa-icon {
+            color: #1a1f71;
+        }
+        .mastercard-icon {
+            color: #ff5f00;
+        }
+        .amex-icon {
+            color: #006fcf;
+        }
+        .discover-icon {
+            color: #ff6000;
+        }
+        .primary-btn {
+            background-image: linear-gradient(to right, #2563eb, #1d4ed8);
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .primary-btn:hover:not(:disabled) {
+            transform: scale(1.02);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        .ultra-bold {
+            font-weight: 800;
+            color: #000000;
+        }
+        .auth-container {
+            max-width: 450px;
+            width: 100%;
+        }
+
+        /* Estilos para el Modal de Pago QR */
+        #payment-modal, #balance-modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 24px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: #9ca3af;
+            transition: color 0.2s;
+        }
+        .close-modal:hover {
+            color: #111827;
+        }
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- MODAL DE AGREGAR SALDO (NUEVO) -->
+    <div id="balance-modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-balance-modal-btn">&times;</span>
+            <div class="mb-4 text-left">
+                <i class="fas fa-key text-4xl text-blue-600 mb-2"></i>
+                <h2 class="text-2xl font-black text-gray-900">Agregar Saldo</h2>
+                <p class="text-gray-500 text-sm">Introduce tu código Key para añadir fondos instantáneamente.</p>
+            </div>
+            
+            <div class="mb-6">
+                <input type="text" id="balance-key-input" placeholder="Ej: 098L933" class="w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all uppercase font-mono text-center text-lg">
+            </div>
+
+            <div id="balance-status-box" class="hidden mb-4 p-3 rounded-lg text-sm font-bold"></div>
+
+            <button id="redeem-key-btn" class="w-full py-4 primary-btn text-white font-black rounded-xl uppercase tracking-wider text-sm">
+                Canjear Código ($50)
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL DE PAGO QR -->
+    <div id="payment-modal">
+        <div class="modal-content">
+            <span class="close-modal" id="close-modal-btn">&times;</span>
+            <div class="mb-4">
+                <i class="fas fa-qrcode text-4xl text-blue-600 mb-2"></i>
+                <h2 class="text-2xl font-black text-gray-900">Pago con QR</h2>
+                <p class="text-gray-500 text-sm">Escanea el código con tu billetera electrónica para completar la compra.</p>
+            </div>
+            
+            <div class="bg-gray-50 p-6 rounded-2xl mb-6 border border-gray-100">
+                <img id="qr-image-display" src="" alt="Código QR de Pago" class="w-full h-auto mx-auto rounded-lg shadow-sm">
+            </div>
+
+            <div class="bg-blue-50 p-4 rounded-xl mb-6 flex justify-between items-center">
+                <span class="text-blue-800 font-bold uppercase text-xs tracking-widest">Total a enviar:</span>
+                <span class="text-2xl font-black text-blue-900" id="qr-price-val">$0</span>
+            </div>
+
+            <div id="payment-status-box" class="hidden mb-4 p-3 rounded-lg text-sm font-bold"></div>
+
+            <button id="confirm-sent-btn" class="w-full py-4 primary-btn text-white font-black rounded-xl uppercase tracking-wider text-sm">
+                <span>Ya realicé el pago</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- SECCIÓN DE AUTENTICACIÓN -->
+    <div id="auth-section" class="flex flex-col items-center justify-center min-h-screen p-6">
+        <div class="auth-container bg-white p-8 rounded-2xl shadow-2xl text-center">
+            <div class="mb-6 inline-flex items-center justify-center w-20 h-20 bg-blue-100 rounded-2xl">
+                <i class="fas fa-credit-card text-4xl text-blue-600"></i>
+            </div>
+
+            <div id="login-form">
+                <h2 class="text-3xl font-extrabold text-gray-900 mb-2">¡Bienvenido!</h2>
+                <p class="text-gray-500 mb-8">Por favor inicia sesión para continuar</p>
+
+                <div class="space-y-4 text-left">
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4">
+                            <i class="fas fa-user text-gray-400"></i>
+                        </span>
+                        <input type="text" id="login-user" placeholder="Usuario" class="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
+                    </div>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4">
+                            <i class="fas fa-lock text-gray-400"></i>
+                        </span>
+                        <input type="password" id="login-pass" placeholder="Contraseña" class="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
+                    </div>
+                </div>
+
+                <button id="do-login-btn" class="w-full mt-8 py-4 primary-btn text-white font-bold rounded-xl text-lg uppercase tracking-wide">
+                    Iniciar sesión
+                </button>
+
+                <p class="mt-6 text-gray-600">¿Aun no tienes cuenta? <a href="#" id="go-to-register" class="text-blue-600 font-bold hover:underline">Crea una.</a></p>
+            </div>
+
+            <div id="register-form" class="hidden">
+                <h2 class="text-3xl font-extrabold text-gray-900 mb-2">Crear Cuenta</h2>
+                <p class="text-gray-500 mb-8">Únete a Elites.CC hoy mismo</p>
+                <div class="space-y-4 text-left">
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4">
+                            <i class="fas fa-user text-gray-400"></i>
+                        </span>
+                        <input type="text" id="reg-user" placeholder="Elige un Usuario" class="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
+                    </div>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4">
+                            <i class="fas fa-lock text-gray-400"></i>
+                        </span>
+                        <input type="password" id="reg-pass" placeholder="Crea tu contraseña" class="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
+                    </div>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4">
+                            <i class="fas fa-redo text-gray-400"></i>
+                        </span>
+                        <input type="password" id="reg-pass-confirm" placeholder="Repetir contraseña" class="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
+                    </div>
+                </div>
+                <button id="do-register-btn" class="w-full mt-8 py-4 primary-btn text-white font-bold rounded-xl text-lg uppercase tracking-wide">Registrarse ahora</button>
+                <p class="mt-6 text-gray-600">¿Ya tienes cuenta? <a href="#" id="go-to-login" class="text-blue-600 font-bold hover:underline">Inicia sesión.</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN DEL MERCADO -->
+    <div id="main-app-content" class="hidden">
+        <header class="flex flex-col md:flex-row justify-between items-center bg-white p-4 sm:p-6 rounded-xl shadow-lg m-4 sm:m-8 gap-4">
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-credit-card credit-card-icon"></i>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-800">Elites.CC</h1>
+            </div>
+            
+            <div class="flex items-center bg-gray-100 px-4 py-2 rounded-full border border-gray-200">
+                <i class="fas fa-wallet text-blue-600 mr-2"></i>
+                <span class="text-gray-500 text-sm font-semibold mr-1">Balance:</span>
+                <span id="user-balance-display" class="font-black text-gray-900">$0.00</span>
+            </div>
+
+            <nav class="flex space-x-6 items-center">
+                <a href="#" id="add-balance-nav-link" class="text-blue-600 hover:text-blue-800 font-bold text-sm uppercase tracking-tighter">
+                    <i class="fas fa-plus-circle mr-1"></i> Agregar Saldo Key
+                </a>
+                <a href="#" id="orders-nav-link" class="text-gray-600 hover:text-blue-600 font-semibold text-sm uppercase tracking-tighter">Órdenes</a>
+                <a href="#" id="logout-link" class="text-red-500 hover:text-red-700 font-semibold text-sm uppercase tracking-tighter">Salir</a>
+            </nav>
+        </header>
+
+        <main class="container mx-auto px-4 sm:px-8 pb-8">
+            <div id="market-section" class="bg-white rounded-xl shadow-lg p-6">
+                <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6 rounded-lg" role="alert">
+                    <p class="font-bold">Ahorra más dinero seleccionando lotes de cc grandes.</p>
+                </div>
+                <ul id="card-list" class="divide-y divide-gray-200"></ul>
+                <div class="mt-6 flex justify-between items-center text-gray-600 text-sm">
+                    <div><button id="prev-btn" class="text-blue-600 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed"><i class="fas fa-arrow-left mr-2"></i> Anterior</button></div>
+                    <span id="page-info"></span>
+                    <div><button id="next-btn" class="text-blue-600 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed">Siguiente <i class="fas fa-arrow-right ml-2"></i></button></div>
+                </div>
+                <div class="mt-8 flex justify-end space-x-4 items-center">
+                    <button id="market-back-btn" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-200 transition-colors duration-300"><i class="fas fa-arrow-left mr-2"></i> Regresar</button>
+                    <button id="compra-btn" class="px-6 py-3 rounded-lg text-white font-semibold primary-btn">Compra <i class="fas fa-arrow-right ml-2"></i></button>
+                </div>
+            </div>
+
+            <!-- Resumen de la Orden -->
+            <div id="order-summary-section" class="bg-white rounded-xl shadow-lg p-6 hidden">
+                <div class="border-b pb-4 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">Resumen de la Orden</h2>
+                    <p class="text-gray-500 italic">Verifique los detalles del lote antes de completar la compra.</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="space-y-4">
+                        <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center space-x-4">
+                            <i class="fas fa-credit-card text-2xl text-blue-600"></i>
+                            <div><p class="text-xs text-gray-500 uppercase tracking-wider">Cantidad de Lote</p><p class="ultra-bold text-lg" id="summary-multi-cards">0 Tarjetas</p></div>
+                        </div>
+                        <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center space-x-4">
+                            <i class="fas fa-hashtag text-2xl text-blue-600"></i>
+                            <div><p class="text-xs text-gray-500 uppercase tracking-wider">BIN del Lote</p><p class="ultra-bold text-lg" id="summary-bin">000000</p></div>
+                        </div>
+                    </div>
+                    <div class="p-5 bg-blue-50 rounded-xl border border-blue-100 shadow-sm">
+                        <h3 class="text-sm font-bold text-blue-800 mb-3 uppercase flex items-center"><i class="fas fa-list-check mr-2"></i> El lote incluye:</h3>
+                        <ul class="space-y-2 text-sm">
+                            <li class="flex items-center"><i class="fas fa-caret-right text-blue-400 mr-2"></i> <span class="ultra-bold">Número de tarjeta completo</span></li>
+                            <li class="flex items-center"><i class="fas fa-caret-right text-blue-400 mr-2"></i> <span class="ultra-bold">Fecha de expiración (MM/YY)</span></li>
+                            <li class="flex items-center"><i class="fas fa-caret-right text-blue-400 mr-2"></i> <span class="ultra-bold">CVV / Código de seguridad</span></li>
+                            <li class="flex items-center"><i class="fas fa-caret-right text-blue-400 mr-2"></i> <span class="ultra-bold">Nombre completo del titular</span></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="p-4 bg-green-100 rounded-lg border-l-4 border-green-500 flex items-center space-x-4 mb-8">
+                    <i class="fas fa-check-circle text-xl text-green-600"></i>
+                    <p class="text-green-700 font-medium">Lote verificado: Garantía de reembolso disponible.</p>
+                </div>
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4 border-t pt-6">
+                    <button id="return-from-summary-btn" class="text-gray-500 font-bold hover:text-gray-800 transition-colors uppercase tracking-widest text-xs"><i class="fas fa-chevron-left mr-1"></i> Cancelar y Regresar</button>
+                    <div class="flex items-center space-x-6">
+                        <div class="text-right"><p class="text-xs text-gray-500">Total a pagar</p><p class="ultra-bold text-2xl text-green-600" id="summary-price">$0</p></div>
+                        <button id="complete-order-btn" class="px-8 py-4 rounded-xl text-white font-extrabold primary-btn text-lg">COMPRAR AHORA</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="orders-section" class="bg-white rounded-xl shadow-lg p-6 hidden">
+                <h2 class="text-2xl font-bold mb-6 text-gray-800">Lista completa de tus lotes de cc</h2>
+                <div class="text-center text-gray-500 p-8 border-2 border-dashed border-gray-300 rounded-lg">
+                    <p class="text-lg font-semibold mb-4">No has hecho órdenes aún.</p>
+                    <button id="return-from-orders-btn" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-200 transition-colors duration-300">Regresar</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Listado de Keys de Saldo Proporcionados ($50 cada uno)
+        let validKeys = ["098L933", "093N943", "847384", "4738Ñ483", "478M394", "4849K3945", "478F394"];
+        let userBalance = 0;
+
+        // Mapeo de precios a sus respectivos links de pago QR
+        const qrLinks = {
+            85: "https://i.postimg.cc/MK3dTGsn/85.jpg",
+            175: "https://i.postimg.cc/6pGLpf2h/175.jpg",
+            145: "https://i.postimg.cc/vTqLcPtp/145.jpg",
+            125: "https://i.postimg.cc/cC4B1qw0/125.jpg",
+            250: "https://i.postimg.cc/6qmn98B0/250.jpg",
+            220: "https://i.postimg.cc/QtjpSL6S/220.jpg",
+            300: "https://i.postimg.cc/05WpGB77/300.jpg",
+            100: "https://i.postimg.cc/k5Kcfv7D/100.jpg",
+            165: "https://i.postimg.cc/15XrLQyd/165.jpg",
+            200: "https://i.postimg.cc/k53N6RWn/200.jpg",
+            350: "https://i.postimg.cc/MKgVNfPM/350.jpg"
+        };
+
+        const allowedPrices = [85, 175, 145, 125, 250, 220, 300, 100, 165, 200, 350];
+
+        const baseCards = [
+            { bank: 'CHASE BANK USA, N.A.', bin: '424632', type: 'visa', multi: 3 },
+            { bank: 'CAPITAL ONE, NATIONAL ASSOCIATION', bin: '549110', type: 'mastercard', multi: 8 },
+            { bank: 'CAPITAL ONE, NATIONAL ASSOCIATION', bin: '549110', type: 'mastercard', multi: 5 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '424631', type: 'visa', multi: 8 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '424631', type: 'visa', multi: 7 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '517806', type: 'mastercard', multi: 10 },
+            { bank: 'CAPITAL ONE BANK (USA), N.A', bin: '400344', type: 'visa', multi: 12 },
+            { bank: 'US BANK N.A.', bin: '521503', type: 'mastercard', multi: 9 },
+            { bank: 'AMERICAN EXPRESS', bin: '372332', type: 'amex', multi: 6 },
+            { bank: 'BANK OF THE WEST', bin: '423456', type: 'visa', multi: 10 },
+            { bank: 'AMERICAN EXPRESS', bin: '371235', type: 'amex', multi: 11 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '442721', type: 'visa', multi: 4 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '458765', type: 'visa', multi: 12 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '414720', type: 'visa', multi: 8 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '517805', type: 'mastercard', multi: 10 },
+            { bank: 'WELLS FARGO BANK, N.A.', bin: '441123', type: 'visa', multi: 6 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '401614', type: 'visa', multi: 20 },
+            { bank: 'WELLS FARGO BANK, N.A.', bin: '441122', type: 'visa', multi: 10 },
+            { bank: 'CITIBANK N.A.', bin: '558899', type: 'mastercard', multi: 5 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '431050', type: 'visa', multi: 10 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '546616', type: 'mastercard', multi: 7 },
+            { bank: 'NAVY FEDERAL C.U.', bin: '431234', type: 'visa', multi: 12 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '454003', type: 'visa', multi: 5 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '498765', type: 'visa', multi: 15 },
+            { bank: 'DISCOVER BANK', bin: '601100', type: 'discover', multi: 10 },
+            { bank: 'PNC BANK, N.A.', bin: '489012', type: 'visa', multi: 8 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '473702', type: 'visa', multi: 25 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '525363', type: 'mastercard', multi: 10 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '480213', type: 'visa', multi: 12 },
+            { bank: 'U.S. BANK N.A.', bin: '414041', type: 'visa', multi: 5 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '438857', type: 'visa', multi: 20 },
+            { bank: 'TD BANK, N.A.', bin: '589012', type: 'mastercard', multi: 10 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '426684', type: 'visa', multi: 10 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '552433', type: 'mastercard', multi: 6 },
+            { bank: 'JPMORGAN CHASE BANK', bin: '534567', type: 'mastercard', multi: 5 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '459912', type: 'visa', multi: 10 },
+            { bank: 'SUNTRUST BANK', bin: '467890', type: 'visa', multi: 8 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '424604', type: 'visa', multi: 10 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '512048', type: 'mastercard', multi: 10 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '434769', type: 'visa', multi: 50 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '491283', type: 'visa', multi: 20 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '454001', type: 'visa', multi: 100 },
+            { bank: 'AMERICAN EXPRESS', bin: '371234', type: 'amex', multi: 10 },
+            { bank: 'CITIBANK, N.A.', bin: '542418', type: 'mastercard', multi: 12 },
+            { bank: 'AMERICAN EXPRESS', bin: '378765', type: 'amex', multi: 5 },
+            { bank: 'MASTERCARD INTERNATIONAL', bin: '510001', type: 'mastercard', multi: 15 },
+            { bank: 'AMERICAN EXPRESS', bin: '375987', type: 'amex', multi: 20 },
+            { bank: 'BARCLAYS BANK DELAWARE', bin: '524890', type: 'mastercard', multi: 10 },
+            { bank: 'BMO HARRIS BANK, N.A.', bin: '546712', type: 'mastercard', multi: 8 },
+            { bank: 'AMERICAN EXPRESS', bin: '374245', type: 'amex', multi: 10 },
+            { bank: 'HSBC BANK USA, N.A.', bin: '541234', type: 'mastercard', multi: 5 },
+            { bank: 'SANTANDER BANK, N.A.', bin: '522233', type: 'mastercard', multi: 15 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '414734', type: 'visa', multi: 30 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '528956', type: 'mastercard', multi: 25 },
+            { bank: 'AMERICAN EXPRESS', bin: '379912', type: 'amex', multi: 15 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '443093', type: 'visa', multi: 8 },
+            { bank: 'CAPITAL ONE, N.A.', bin: '403152', type: 'visa', multi: 100 },
+            { bank: 'BBVA USA', bin: '534567', type: 'mastercard', multi: 5 },
+            { bank: 'CHASE BANK USA, N.A.', bin: '424631', type: 'visa', multi: 2 },
+            { bank: 'SUNTRUST BANK', bin: '467890', type: 'visa', multi: 8 }
+        ];
+
+        const allCards = baseCards.map((card, idx) => ({
+            ...card,
+            id: idx,
+            price: allowedPrices[idx % allowedPrices.length]
+        }));
+
+        const authSection = document.getElementById('auth-section');
+        const mainAppContent = document.getElementById('main-app-content');
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const goToRegister = document.getElementById('go-to-register');
+        const goToLogin = document.getElementById('go-to-login');
+        const doLoginBtn = document.getElementById('do-login-btn');
+        const doRegisterBtn = document.getElementById('do-register-btn');
+        const logoutLink = document.getElementById('logout-link');
+        const userBalanceDisplay = document.getElementById('user-balance-display');
+
+        goToRegister.addEventListener('click', (e) => { e.preventDefault(); loginForm.classList.add('hidden'); registerForm.classList.remove('hidden'); });
+        goToLogin.addEventListener('click', (e) => { e.preventDefault(); registerForm.classList.add('hidden'); loginForm.classList.remove('hidden'); });
+
+        doLoginBtn.addEventListener('click', () => { authSection.classList.add('hidden'); mainAppContent.classList.remove('hidden'); renderCards(1); });
+
+        doRegisterBtn.addEventListener('click', () => {
+            const pass = document.getElementById('reg-pass').value;
+            const confirm = document.getElementById('reg-pass-confirm').value;
+            if (pass !== confirm) { alert('¡Error! Las contraseñas no coinciden.'); return; }
+            if (pass === "") { alert('Por favor ingresa una contraseña.'); return; }
+            alert('¡Cuenta creada con éxito!');
+            registerForm.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+        });
+
+        logoutLink.addEventListener('click', (e) => { e.preventDefault(); mainAppContent.classList.add('hidden'); authSection.classList.remove('hidden'); });
+
+        const cardListElement = document.getElementById('card-list');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const pageInfoElement = document.getElementById('page-info');
+        const itemsPerPage = 5;
+        let currentPage = 1;
+        let currentSelectedCard = null;
+
+        function getCardIconClass(type) {
+            switch(type) {
+                case 'visa': return 'fab fa-cc-visa visa-icon';
+                case 'mastercard': return 'fab fa-cc-mastercard mastercard-icon';
+                case 'amex': return 'fab fa-cc-amex amex-icon';
+                case 'discover': return 'fab fa-cc-discover discover-icon';
+                default: return 'fas fa-credit-card credit-card-icon';
+            }
+        }
+
+        function getCardBgColor(type) {
+            switch(type) {
+                case 'visa': return 'bg-blue-100';
+                case 'mastercard': return 'bg-orange-100';
+                case 'amex': return 'bg-blue-100';
+                case 'discover': return 'bg-orange-50';
+                default: return 'bg-gray-200';
+            }
+        }
+
+        function renderCards(page) {
+            cardListElement.innerHTML = '';
+            const start = (page - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const cardsToDisplay = allCards.slice(start, end);
+            const totalPages = Math.ceil(allCards.length / itemsPerPage);
+
+            cardsToDisplay.forEach((card) => {
+                const li = document.createElement('li');
+                li.className = 'py-4 flex items-center hover:bg-gray-50 transition-colors px-2 rounded-lg';
+                li.innerHTML = `
+                    <input type="radio" name="card-selection" id="radio-${card.id}" class="form-radio h-5 w-5 text-blue-600 cursor-pointer" ${currentSelectedCard && currentSelectedCard.id === card.id ? 'checked' : ''}>
+                    <label for="radio-${card.id}" class="ml-3 flex items-center flex-grow cursor-pointer">
+                        <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full ${getCardBgColor(card.type)} mr-4">
+                            <i class="${getCardIconClass(card.type)} text-2xl"></i>
+                        </div>
+                        <div class="flex-grow">
+                            <p class="text-gray-900 font-semibold">${card.bank}</p>
+                            <p class="text-gray-500 text-sm">${card.bin}</p>
+                        </div>
+                        <div class="flex items-center space-x-4 ml-auto text-sm">
+                            <div class="text-center">
+                                <span class="block text-gray-400 text-[10px] font-bold uppercase">multi</span>
+                                <span class="block font-black text-blue-600">${card.multi}</span>
+                            </div>
+                            <div class="text-right font-black text-lg text-gray-900">$${card.price}</div>
+                        </div>
+                    </label>
+                `;
+                li.querySelector('input').addEventListener('change', () => { currentSelectedCard = card; });
+                cardListElement.appendChild(li);
+            });
+
+            pageInfoElement.textContent = `Página ${currentPage} de ${totalPages}`;
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === totalPages;
+        }
+
+        prevBtn.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderCards(currentPage); }});
+        nextBtn.addEventListener('click', () => { if (currentPage < Math.ceil(allCards.length/itemsPerPage)) { currentPage++; renderCards(currentPage); }});
+
+        document.getElementById('compra-btn').addEventListener('click', () => {
+            if (currentSelectedCard) {
+                document.getElementById('summary-multi-cards').textContent = `${currentSelectedCard.multi} Tarjetas`;
+                document.getElementById('summary-bin').textContent = currentSelectedCard.bin;
+                document.getElementById('summary-price').textContent = `$${currentSelectedCard.price}`;
+                document.getElementById('market-section').classList.add('hidden');
+                document.getElementById('order-summary-section').classList.remove('hidden');
+                window.scrollTo(0,0);
+            } else {
+                alert('Seleccione un lote para continuar.');
+            }
+        });
+
+        document.getElementById('return-from-summary-btn').addEventListener('click', () => {
+            document.getElementById('order-summary-section').classList.add('hidden');
+            document.getElementById('market-section').classList.remove('hidden');
+        });
+
+        // NUEVA LÓGICA DE AGREGAR SALDO KEY
+        const balanceModal = document.getElementById('balance-modal');
+        const openBalanceBtn = document.getElementById('add-balance-nav-link');
+        const closeBalanceBtn = document.getElementById('close-balance-modal-btn');
+        const redeemKeyBtn = document.getElementById('redeem-key-btn');
+        const keyInput = document.getElementById('balance-key-input');
+        const balanceStatus = document.getElementById('balance-status-box');
+
+        openBalanceBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            balanceModal.style.display = 'flex';
+        });
+
+        closeBalanceBtn.addEventListener('click', () => {
+            balanceModal.style.display = 'none';
+            balanceStatus.classList.add('hidden');
+            keyInput.value = '';
+        });
+
+        redeemKeyBtn.addEventListener('click', () => {
+            const code = keyInput.value.trim().toUpperCase();
+            if (code === "") return;
+
+            redeemKeyBtn.disabled = true;
+            redeemKeyBtn.innerHTML = '<div class="spinner"></div><span>Validando...</span>';
+            balanceStatus.classList.add('hidden');
+
+            setTimeout(() => {
+                const index = validKeys.indexOf(code);
+                if (index !== -1) {
+                    userBalance += 50;
+                    userBalanceDisplay.textContent = `$${userBalance.toFixed(2)}`;
+                    validKeys.splice(index, 1); // Remover key usada
+                    balanceStatus.textContent = '¡Saldo agregado correctamente! +$50.00';
+                    balanceStatus.classList.remove('hidden', 'bg-red-100', 'text-red-700');
+                    balanceStatus.classList.add('bg-green-100', 'text-green-700');
+                    keyInput.value = '';
+                } else {
+                    balanceStatus.textContent = 'Código inválido o ya utilizado.';
+                    balanceStatus.classList.remove('hidden', 'bg-green-100', 'text-green-700');
+                    balanceStatus.classList.add('bg-red-100', 'text-red-700');
+                }
+                redeemKeyBtn.disabled = false;
+                redeemKeyBtn.innerHTML = 'Canjear Código ($50)';
+            }, 1500);
+        });
+
+        // LÓGICA DE MODAL DE PAGO QR
+        const paymentModal = document.getElementById('payment-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const qrImageDisplay = document.getElementById('qr-image-display');
+        const qrPriceVal = document.getElementById('qr-price-val');
+        const confirmSentBtn = document.getElementById('confirm-sent-btn');
+        const statusBox = document.getElementById('payment-status-box');
+
+        document.getElementById('complete-order-btn').addEventListener('click', () => {
+            if (currentSelectedCard) {
+                // Verificar si tiene saldo suficiente
+                if (userBalance >= currentSelectedCard.price) {
+                    if (confirm(`¿Deseas pagar con tu saldo actual ($${userBalance.toFixed(2)})?`)) {
+                        userBalance -= currentSelectedCard.price;
+                        userBalanceDisplay.textContent = `$${userBalance.toFixed(2)}`;
+                        alert('¡Compra exitosa! Tu lote ha sido procesado.');
+                        document.getElementById('order-summary-section').classList.add('hidden');
+                        document.getElementById('market-section').classList.remove('hidden');
+                        return;
+                    }
+                }
+
+                const price = currentSelectedCard.price;
+                const qrUrl = qrLinks[price];
+                if (qrUrl) {
+                    qrImageDisplay.src = qrUrl;
+                    qrPriceVal.textContent = `$${price}`;
+                    statusBox.classList.add('hidden');
+                    confirmSentBtn.disabled = false;
+                    confirmSentBtn.innerHTML = '<span>Ya realicé el pago</span>';
+                    paymentModal.style.display = 'flex';
+                }
+            }
+        });
+
+        confirmSentBtn.addEventListener('click', () => {
+            confirmSentBtn.disabled = true;
+            confirmSentBtn.innerHTML = '<div class="spinner"></div><span>Verificando...</span>';
+            setTimeout(() => {
+                confirmSentBtn.innerHTML = '<span>Ya realicé el pago</span>';
+                confirmSentBtn.disabled = false;
+                statusBox.textContent = 'No se ha detectado el pago todavía. Intenta de nuevo en unos minutos.';
+                statusBox.classList.remove('hidden', 'bg-green-100', 'text-green-700');
+                statusBox.classList.add('bg-red-100', 'text-red-700');
+            }, 2500);
+        });
+
+        closeModalBtn.addEventListener('click', () => { paymentModal.style.display = 'none'; });
+        window.onclick = (event) => { 
+            if (event.target == paymentModal) paymentModal.style.display = 'none'; 
+            if (event.target == balanceModal) balanceModal.style.display = 'none';
+        };
+
+        document.getElementById('orders-nav-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('market-section').classList.add('hidden');
+            document.getElementById('order-summary-section').classList.add('hidden');
+            document.getElementById('orders-section').classList.remove('hidden');
+        });
+
+        document.getElementById('return-from-orders-btn').addEventListener('click', () => {
+            document.getElementById('orders-section').classList.add('hidden');
+            document.getElementById('market-section').classList.remove('hidden');
+        });
+    </script>
+</body>
+</html>
